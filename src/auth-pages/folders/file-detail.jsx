@@ -1,0 +1,160 @@
+import React, { useContext, useEffect, useState } from 'react'
+import { AppContext } from '../../context/AppContext'
+import { folderActionpoints, folderDocuments } from '../../utils/folders';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { CircleArrowRight, Download, Edit, FileDown, Plus, Wifi, WifiHigh, WifiLow } from 'lucide-react';
+import { Input } from '../../components/ui/input';
+import SkeletonComponent from '../../components/skeleton-component';
+import { format } from 'date-fns'
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import EditActionpoints from './edit-actionpoints';
+import EditFileSummary from './edit-file-summary';
+import EditFileUploads from './edit-file-uploads';
+
+const FileDetail = ({ id, brief, creator, privileges }) => {
+
+    const { token, user, record } = useContext(AppContext);
+    const [documents, setDocuments] = useState();
+    const [error, setError] = useState();
+    const [isLoading, setIsLoading] = useState(false);
+    const data = { id };
+    const [activetab, setActivetab] = useState('attachment');
+
+    useEffect(() => {
+        folderDocuments(token, data, setDocuments, setError, setIsLoading)
+    }, [])
+
+    console.log(documents)
+
+    return (
+        isLoading ? <SkeletonComponent /> :
+        <div className='grid gap-4'>
+            <div className="h-px bg-gradient-to-r from-transparent via-blue-950 dark:via-white to-transparent"></div>
+            {/** FILE PROPERTIES NAVIGATION/TAB BUTTONS */}
+            <div className='flex items-center justify-center gap-12 p-2'>
+                <div 
+                    className='grid gap-1 cursor-pointer hover:text-accent dark:hover:text-brand'
+                    onClick={() => setActivetab('summary')}
+                >
+                    <div className='flex justify-center'>
+                        <div 
+                            className={`relative w-12 h-12 py-2 ${activetab === 'summary' ? 'bg-accent dark:bg-brand text-white dark:text-accent' :  'border border-muted-foreground/50'} rounded-xl shadow-md flex items-center justify-center cursor-pointer`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-summary-icon lucide-summary"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg>
+                        </div>
+                    </div>
+                    <div className='w-full flex justify-center'>
+                        <span className={`text-sm ${activetab === 'summary' && 'text-accent dark:text-brand'}`}>Summary</span>
+                    </div>
+                </div>
+                <div 
+                    className='grid gap-1 cursor-pointer hover:text-accent dark:hover:text-brand'
+                    onClick={() => setActivetab('attachments')}
+                >
+                    <div className='flex justify-center'>
+                        <div 
+                            className={`relative w-12 h-12 py-2 ${activetab === 'attachments' ? 'bg-accent dark:bg-brand text-white dark:text-accent' :  'border border-muted-foreground/50'} rounded-xl shadow-md flex items-center justify-center cursor-pointer`}
+                        >    
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-paperclip-icon lucide-paperclip"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>
+                        </div>
+                    </div>
+                    <div className='w-full flex justify-center'>
+                        <span className={`text-sm ${activetab === 'attachments' && 'text-accent dark:text-brand'}`}>Attach files</span>
+                    </div>
+                </div>
+            </div>
+
+            {/** FILE PROPERTIES MAIN CONTENT */}
+            <div className='w-full p-0 border border-muted-foreground/50 rounded-2xl'>
+                <div className={`gap-0 ${activetab === 'summary' ? 'grid' : 'hidden'}`}>
+                    <div className='flex items-center justify-between p-3 border-b border-muted-foreground/50'>
+                        <Label className="text-lg font-extralight">File description</Label>
+                    {
+                        user && JSON.parse(user).email === creator &&
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Edit className='w-5 h-5 cursor-pointer text-accent dark:text-brand' />
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogTitle>Edit file description</DialogTitle>
+                                <EditFileSummary id={id} summary={brief} />
+                            </DialogContent>
+                        </Dialog>
+                    }
+                        
+                    </div>
+                    <div className='grid gap-5 p-5'>
+                        <Textarea 
+                            value={brief}
+                            className="p-2 rounded-xl h-72 border border-muted-foreground/20"
+                            readOnly
+                        ></Textarea>
+                        <Button 
+                            variant="outline" className="flex gap-1 items-center h-12"
+                            onClick={() => setActivetab('points')}
+                        >
+                            <span>Next</span>
+                            <CircleArrowRight />
+                        </Button>
+                    </div>
+                </div>
+                <div className={`gap-0 ${activetab === 'attachments' ? 'grid' : 'hidden'}`}>
+                    <div className='w-full p-3 border-b border-muted-foreground/50 flex items-center justify-between'>
+                        <Label className="font-extralight text-lg">Upload attachments</Label>
+                    {
+                        user && (JSON.parse(user).email === creator || (privileges && privileges.includes(JSON.parse(user).email))) &&
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Plus className='w-8 h-8 cursor-pointer text-accent dark:text-brand' />
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogTitle>Upload new document</DialogTitle>
+                                <EditFileUploads file_id={id} />
+                            </DialogContent>
+                        </Dialog>
+                    }
+                        
+                    </div>
+                    <div className='grid gap-5 p-5'>
+                        <div className={`grow w-full flex flex-wrap items-start gap-8 p-4 border border-muted-foreground/20 rounded-xl h-80`}>
+                        {
+                            documents && documents.length > 0 ? documents.map(doc => (
+                                <div 
+                                    key={doc.id} 
+                                    className='grid gap-1 my-1 cursor-pointer'
+                                >
+                                {
+                                    doc?.file_path !== null && 
+                                    <a href={import.meta.env.VITE_DOWNLOAD_URL+doc?.file_path} download={doc?.document_title} target='_blank'>
+                                        <FileDown className='w-24 h-24 text-accent hover:text-accent/80 dark:text-brand dark:hover:text-brand/80 mx-auto' />
+                                    </a>
+                                }
+                                    <div className='flex items-center justify-between gap-4'>
+                                        <span className='hover:text-muted-foreground text-sm'>{doc?.document_title}</span>
+                                        {
+                                            user && (JSON.parse(user).email === doc.uploaded_by  || (privileges && privileges.includes(JSON.parse(user).email))) &&
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Edit className='w-4 h-4 cursor-pointer text-accent dark:text-brand' />
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogTitle>Update {doc?.document_title} upload</DialogTitle>
+                                                    <EditFileUploads doc={doc} />
+                                                </DialogContent>
+                                            </Dialog>
+                                        }
+                                    </div>
+                                </div>
+                            )) : <span className='text-muted-foreground/30'>No file uploaded</span>
+                        }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export default FileDetail

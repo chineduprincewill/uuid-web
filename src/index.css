@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Deep dark background */
+    --background: 260 30% 6%;
+    --foreground: 0 0% 100%;
+
+    /* Cards / elevated surfaces */
+    --card: 260 25% 10%;
+    --card-foreground: 0 0% 100%;
+    --popover: 260 25% 10%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Primary is the vibrant purple base */
+    --primary: 275 85% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 20% 15%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted text */
+    --muted: 260 20% 15%;
+    --muted-foreground: 240 5% 65%;
+
+    /* Accent changed to Purple */
+    --accent: 275 85% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Brand changed to Pink */
+    --brand: 330 85% 65%;
+    --brand-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Subtle gray/purple borders */
+    --border: 260 20% 18%;
+    --input: 260 20% 18%;
+    --ring: 275 85% 60%;
+    
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Same as root since the design is dark-mode native */
+    --background: 260 30% 6%;
+    --foreground: 0 0% 100%;
+    --card: 260 25% 10%;
+    --card-foreground: 0 0% 100%;
+    --popover: 260 25% 10%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 275 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 20% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 260 20% 15%;
+    --muted-foreground: 240 5% 65%;
+    
+    /* Accent changed to Purple */
+    --accent: 275 85% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Brand changed to Pink */
+    --brand: 330 85% 65%;
+    --brand-foreground: 0 0% 100%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 260 20% 18%;
+    --input: 260 20% 18%;
+    --ring: 275 85% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Subtle radial glow behind the main content */
+    background-image: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* 
+   * Neon Gradient Button 
+   * Updated to use Purple (Primary) to Pink (Brand)
+   */
+  .btn-neon {
+    @apply relative flex w-full items-center justify-center rounded-xl px-6 py-4 font-bold text-white transition-all duration-300;
+    background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--brand)) 100%);
+    box-shadow: 0 4px 20px -2px hsl(var(--brand) / 0.4);
+  }
+  
+  .btn-neon:hover {
+    box-shadow: 0 4px 25px 0px hsl(var(--brand) / 0.6);
+    transform: translateY(-1px);
+  }
+  
+  .btn-neon:active {
+    transform: translateY(1px);
+  }
+
+  /* 
+   * Dark Input Field
+   */
+  .input-dark {
+    @apply w-full rounded-xl border border-border bg-transparent px-4 py-4 text-white placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors;
+  }
+
+  /* 
+   * Form Label
+   */
+  .label-uppercase {
+    @apply mb-2 block text-xs font-bold uppercase tracking-wider text-muted-foreground;
+  }
+
+  /* 
+   * Text Link
+   * Updated to use the new Purple Accent
+   */
+  .link-accent {
+    @apply font-semibold text-accent hover:brightness-125 transition-all;
+  }
+
+  /* Aurora Background Glow */
+  .aurora {
+    position: relative;
+    overflow: hidden; /* Keeps the fixed blurs from causing horizontal scrolling */
+  }
+
+  .aurora::before,
+  .aurora::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .aurora::before {
+    width: 340px;
+    height: 340px;
+    top: -140px;
+    left: -110px;
+    background: rgba(124, 77, 255, 0.42); /* Purple glow */
+  }
+
+  .aurora::after {
+    width: 300px;
+    height: 300px;
+    top: 120px;
+    right: -140px;
+    background: rgba(255, 61, 154, 0.28); /* Pink glow */
+  }
+}

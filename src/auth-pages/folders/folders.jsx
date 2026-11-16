@@ -1,0 +1,692 @@
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import PageHeader from '../../components/page-header'
+import { Activity, ArrowLeft, ArrowLeftToLine, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CircleX, CloudUpload, Edit, Ellipsis, File, FileIcon, FileSearchCorner, FileText, FolderOpen, FolderPlusIcon, FolderSearch, Forward, Home, House, LayoutGrid, Link, List, PlusCircleIcon, PlusIcon, ReceiptText, ScanSearch, UserPlus, UserRoundCog, X } from 'lucide-react'
+import FolderIcon from '../../components/folder-icon'
+import UserIcon from '../../components/user-icon'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
+import NewFolder from './new-folder'
+import { AppContext } from '../../context/AppContext'
+import { deleteAction, fetchFolders, listProgramAreas } from '../../utils/folders'
+import SkeletonComponent from '../../components/skeleton-component'
+import DataTable from '../../components/data-table'
+import FolderUsers from './folder-users'
+import FileProperties from './file-properties'
+import ShareDialog from './share-dialog'
+import FileDetail from './file-detail'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import RenameFolder from './rename-folder'
+import { toast } from 'sonner'
+import GroupadminsDialog from './groupadmins-dialog'
+import { generateTwoDigitRange, getFiscalYear, getNextQuarter } from '../../utils/functions'
+import ComboboxComponent from '../../components/combobox-component'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../components/ui/select'
+import ActivityTracker from '../activities/activity-tracker'
+import { SiPivotaltracker } from 'react-icons/si'
+
+const Folders = () => {
+
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const { token, user, record, refreshRecord } = useContext(AppContext);
+    const [folders, setFolders] = useState();
+    const [error, setError] = useState();
+    const [loading, setLoading] = useState(false);
+    const [folder_name, setFolder_name] = useState(searchParams.get('foldername') ? searchParams.get('foldername') : (user && JSON.parse(user)?.folder));
+    const [folder_type, setFolder_type] = useState(searchParams.get('foldertype') ? searchParams.get('foldertype') :'system');
+    const [prev, setPrev] = useState();
+    const [active_view, setActive_view] = useState(searchParams.get('active_view') ? searchParams.get('active_view') :'folders')
+    const [filecreated, setFilecreated] = useState();
+    const [isOpen, setIsOpen] = useState(false);
+    const [newfolderOpen, setNewfolderpOpen] = useState(false);
+    const [privileges, setPrivileges] = useState();
+    const [item_to_delete, setItem_to_delete] = useState();
+    const [success, setSuccess] = useState();
+    const [deleting, setDeleting] = useState(false);
+    const [view, setView] = useState('list');
+    const [g_admin, setG_admin] = useState();
+    const userinfo = user && JSON.parse(user);
+    const [isLoading, setIsLoading] = useState(false);
+    const [program_areas, setProgram_areas] = useState();
+    const [program_area, setProgram_area] = useState();
+    const [quarter, setQuarter] = useState('');
+    const [fy, setFy] = useState()
+    const fys = generateTwoDigitRange(4);
+    const [is_activity, setIs_activity] = useState(searchParams.get('isactivity') && searchParams.get('isactivity'));
+    const [fid, setFid] = useState(searchParams.get('folderid') && searchParams.get('folderid'))
+
+    const clearSelection = () => {
+        setFy();
+        setQuarter('');
+        setProgram_area();
+    }
+
+    const [contextMenu, setContextMenu] = useState({
+        visible: false,
+        x: 0,
+        y: 0,
+        itemid: null,
+        item: null,
+        itemparent: null,
+        itemtype: null,
+        itemdetail: null,
+        itemadmin: null,
+    });
+    const menuRef = useRef(null);
+
+    const handleRightClick = (e, item, id, parent, type, detail, admins) => {
+        e.preventDefault();
+        setContextMenu({
+          visible: true,
+          x: e.clientX - 220,
+          y: e.clientY,
+          itemid: id,
+          item: item,
+          itemparent: parent,
+          itemtype: type,
+          itemdetail: detail,
+          itemadmin: admins,
+        });
+    };
+    
+    const handleAction = (action) => {
+        console.log(`Action: ${action} on ${contextMenu.item}`);
+        setContextMenu({ ...contextMenu, visible: false });
+    };
+
+    const actionDelete = (itemid, itemname) => {
+
+        if(window.confirm(`Are you sure you want to delete ${itemname}?`)){
+            setItem_to_delete(itemid);
+        }
+    } 
+
+    const handleClickOutside = () => {
+        setContextMenu({ 
+            visible: false,
+            x: 0,
+            y: 0,
+            itemid: null,
+            item: null,
+            itemparent: null,
+            itemtype: null,
+            itemdetail: null,
+            itemadmin: null,
+         });
+    };
+
+    const updateLinks = (current, parent, type, access, grp_admin, an_activity) => {
+        //alert(current)
+        setFolder_name(current);
+        setPrev(parent)
+        setFolder_type(type)
+        setPrivileges(access)
+        setG_admin(grp_admin)
+        setIs_activity(an_activity)
+    }
+
+    const columns = [
+        {
+            accessorKey: 'folder_title',
+            header: 'Folder',
+            cell: ({ row }) => {
+                const fld = row.original; 
+                //const [isOpen, setIsOpen] = useState(false);
+                //const [assignOpen, setAssignOpen] = useState(false);
+      
+                return (
+                    <div 
+                        className='flex items-center gap-2 cursor-pointer'
+                        onClick={() => fld.folder_type !== 'file' && updateLinks(fld.folder_name, fld.parent_folder, fld.folder_type, fld.privileges, fld.group_admin, fld.is_activity)}
+                    >
+                        <div className='w-10'>
+                    {
+                        fld.folder_type === 'file' ?
+                        <FileText className='w-8 h-8 mx-2' /> : 
+                        <FolderIcon size='small' />
+                        
+                    }
+                        </div>
+                        <div className='grid gap-0'>
+                            <span className={`${fld.folder_type !== 'file' && 'capitalize' } text-lg font-extralight text-wrap`}>
+                            {
+                                //fld.folder_type === 'file' ? 
+                                //fld?.folder_title.toLowerCase() : 
+                                fld.folder_title
+                            }
+                            </span>
+                        </div>
+                    {
+                        deleting && item_to_delete === fld.id && <span className='text-sm text-red-500 italic'>deleting...</span>
+                    }
+                    </div>
+                );
+            },
+            enableSorting: true,
+            enableColumnFilter: true,
+        },
+        {
+            accessorKey: 'created_by',
+            header: '',
+            cell: ({ row }) => {
+                const fld = row.original; 
+                //const [isOpen, setIsOpen] = useState(false);
+                //const [assignOpen, setAssignOpen] = useState(false);
+      
+                return (
+                    <span 
+                        className='font-extralight text-muted-foreground'
+                    >
+                        {fld.folder_type !== 'system' && 'created by ' + fld.created_by}
+                    </span>
+                );
+            },
+            enableSorting: true,
+            enableColumnFilter: true,
+        },
+        {
+            id: 'actions',
+            header: <div className='flex justify-end items-center gap-2'>
+                    {
+                        view === 'grid' ? 
+                            <List 
+                                className='cursor-pointer' 
+                                onClick={() => setView('list')}
+                            /> : 
+                            <LayoutGrid 
+                                className='cursor-pointer' 
+                                onClick={() => setView('grid')}
+                            />
+                    }
+                    </div>,
+            cell: ({ row }) => {
+              const fld = row.original; 
+              //const [isOpen, setIsOpen] = useState(false);
+              //const [assignOpen, setAssignOpen] = useState(false);
+    
+              return (
+                <div className="w-full flex items-center justify-end gap-3">
+                {
+                    fld.folder_type === 'file' &&
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <div className='hover:text-muted-foreground'>
+                                <FileSearchCorner className='w-4 h-4 cursor-pointer' />
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent className="bg-background rounded-2xl">
+                            <DialogTitle className="font-extralight">{fld && fld.parent_folder.split('__').at(-1).replaceAll('_', ' ')+' | '+fld.folder_title}</DialogTitle>
+                            <FileDetail 
+                                id={fld.id}
+                                brief={fld.description}
+                                creator={fld.created_by}
+                                privileges={fld.privileges}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                }
+
+                {
+                    user && JSON.parse(user).email === fld.created_by && fld.folder_type === 'file' && !fld.description &&
+                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                        <DialogTrigger asChild>
+                            <CloudUpload className='w-5 h-5 text-accent dark:text-brand cursor-pointer' />
+                        </DialogTrigger>
+                        <DialogContent className="!w-[55vw] overflow-y-auto !max-w-none bg-background rounded-2xl">
+                            <DialogTitle className="font-extralight">{fld && fld.parent_folder.split('__').at(-1).replaceAll('_', ' ')+' | '+fld.folder_title}</DialogTitle>
+                            <FileProperties 
+                                fileinfo={fld ? fld : filecreated} 
+                                setIsOpen={setIsOpen}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                }
+                {
+                    user && ((userinfo.role === 'admin' && userinfo.folder === fld.folder_name) || (userinfo.email === fld.created_by) || (fld.group_admin && fld.group_admin.includes(userinfo.email))) && fld.folder_type !== 'system' &&
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Forward className='w-5 h-5 cursor-pointer' />
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle className="font-extralight leading-normal">Share {fld.folder_title} with individuals or groups</DialogTitle>
+                            <ShareDialog folder_id={fld.id} privileges={fld.privileges} />
+                        </DialogContent>
+                    </Dialog>
+                }
+                {
+                    user && ((JSON.parse(user).folder === 'APIN' && JSON.parse(user).role === 'admin') || 
+                    (JSON.parse(user).role === 'admin' && fld.folder_type !== 'system') || 
+                    (JSON.parse(user).email === fld.created_by && fld.folder_type !== 'system') || 
+                    (fld.group_admin && fld.group_admin.includes(userinfo.email))) &&
+                    <Ellipsis 
+                        className="h-4 w-4 cursor-pointer" 
+                        onClick={(e) => contextMenu.item === fld.folder_title ? handleClickOutside() : handleRightClick(e, fld.folder_title, fld.id, fld.parent_folder, fld.folder_type, fld.description, fld.group_admin)}
+                    />
+                }
+                </div>
+              );
+            },
+        },
+    ];
+
+    let datafilters = [
+        {
+            title: "folder_title",
+            placeholder: "filter folders..."
+        },
+    ];
+
+    const repoFilter = useMemo(() => {
+        // Ensure actionpoints is always an array
+        let filtered = Array.isArray(folders) ? folders : [];
+        
+        if ((!fy || fy === '') && (!quarter || quarter === '') && (!program_area || program_area === '')) {
+            return filtered;
+        }
+
+        if(fy && fy !== ''){
+            filtered = filtered.filter(pr => pr.fy === fy);
+        }
+
+        if(quarter && quarter !== ''){
+            filtered = filtered.filter(pr => pr.quarter === quarter);
+        }
+
+        if(program_area && program_area !== ''){
+            filtered = filtered.filter(pr => pr.program_area === program_area);
+        }
+        
+        return filtered;
+    }, [folders, quarter, fy, program_area]);
+
+    if(success){
+        toast.success(success, {
+            className: "!bg-green-700 !text-white !border-white !font-bold",
+            descriptionClassName: "!text-green-700",
+        });
+        setContextMenu(
+            {
+                visible: false,
+                x: 0,
+                y: 0,
+                itemid: null,
+                item: null,
+                itemparent: null,
+                itemtype: null,
+                itemdetail: null,
+                itemadmin: null,
+            }
+        );
+        refreshRecord(Date.now());
+        setSuccess();
+    }
+
+    if(error){
+        alert(JSON.stringify(error))
+        setContextMenu({ 
+            visible: false,
+            x: 0,
+            y: 0,
+            itemid: null,
+            item: null,
+            itemparent: null,
+            itemtype: null,
+            itemdetail: null,
+            itemadmin: null,
+        });
+        setError();
+    }
+
+    useEffect(() => {
+        filecreated && setIsOpen(true);
+        filecreated && setNewfolderpOpen(false);
+    }, [filecreated])
+
+    useEffect(() => {
+        const data = {
+            folder_name: folder_name && folder_name,
+            folder_type: searchParams.get('foldername') ? 'document' : 'system'
+        }
+        fetchFolders(token, data, setFolders, setError, setLoading)
+    }, [record, folder_name])
+
+    useEffect(() => {
+        searchParams.get('parentfolder') && setPrev(searchParams.get('parentfolder'));
+    }, [searchParams.get('parentfolder')])
+
+    useEffect(() => {
+        item_to_delete && deleteAction(token, { id:item_to_delete }, setSuccess, setError, setDeleting)
+    }, [item_to_delete])
+
+    useEffect(() => {
+        listProgramAreas(token, setProgram_areas, setError, setIsLoading)
+    }, [])
+
+    console.log(folders)
+
+    return (
+        <div className={`w-full grid ${active_view === 'folders' ? 'gap-4' : 'gap-4'} p-4`}>
+            {/** PAGE DIRECTORY LISTING */}
+            <div className='bg-gradient-to-b to-gray-300 dark:from-background dark:to-background/30 flex items-center justify-between'>
+                <div className='w-full flex items-end py-2 px-4 gap-1'>
+                    <span
+                        className='text-sm font-extralight cursor-pointer'
+                        onClick={() => setFolder_name('APIN')}
+                    >APIN</span>
+                    <span className='text-sm mx-1'>|</span>
+                {
+                    folder_name !== 'APIN' &&
+                    <>
+                    {
+                        prev !== 'APIN' &&
+                        <div className='flex gap-0 items-center'>
+                            <span
+                                className='text-sm font-extralight cursor-pointer'
+                                onClick={() => setFolder_name(prev)}
+                            >
+                                {prev && prev.split('__').at(-1).replaceAll('_', ' ')}
+                            </span>
+                            <ChevronRight 
+                                className='w-4 h-4 text-muted-foreground cursor-pointer'
+                            />
+                        </div>
+                    }
+                    {
+                        folder_name !== prev &&
+                        <div className='flex gap-0 items-center'>
+                            <span
+                                className='text-sm font-extralight cursor-pointer'
+                            >
+                                {loading ? '...' : folder_name && folder_name.split('__').at(-1).replaceAll('_', ' ')}
+                            </span>
+                            <ChevronRight 
+                                className='w-4 h-4 text-muted-foreground cursor-pointer'
+                                onClick={() => setFolder_name(prev)}
+                            />
+                        </div>
+                    }
+                    </>
+                }
+                </div>
+                <div 
+                    className='flex items-center gap-0.5 mr-4 px-4 py-1 rounded-full border border-muted-foreground/50 shadow-xl hover:bg-muted-foreground/10 cursor-pointer'
+                    onClick={() => window.location.reload()}
+                >
+                    <Home className='w-4 h-4 text-muted-foreground' />
+                    <span className='font-extralight'>Home</span>
+                </div>
+            </div>
+
+            {/** NAVIGATION BUTTONS */}
+            <div className={`flex items-center ${userinfo.folder === 'APIN' ? 'justify-center' : 'justify-between'}`}>
+            {
+                userinfo.folder !== 'APIN' &&
+                <div className='flex items-center gap-4'>
+                    <ComboboxComponent 
+                        comboOptions={fys} 
+                        value={fy} 
+                        setValue={setFy} 
+                        placeholder={isLoading ? "fetching..." : "Search fiscal year"}  
+                        resource="fiscal year"
+                    />
+                    <Select
+                        value={quarter} // Reflects the current state
+                        onValueChange={setQuarter} // Updates the state on selection
+                    >
+                        <SelectTrigger 
+                            className="h-14 bg-input border-border focus:ring-2 focus:ring-primary/30 focus:border-primary transition rounded-none"
+                        >
+                            <SelectValue placeholder="Quarter" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                <SelectLabel>Quarter</SelectLabel>
+                                <SelectItem value="Q1">Q1</SelectItem>
+                                <SelectItem value="Q2">Q2</SelectItem>
+                                <SelectItem value="Q3">Q3</SelectItem>
+                                <SelectItem value="Q4">Q4</SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                    <ComboboxComponent 
+                        comboOptions={program_areas} 
+                        value={program_area} 
+                        setValue={setProgram_area} 
+                        placeholder={isLoading ? "fetching..." : "Search program area"}  
+                        resource="program area"
+                    />
+                    <CircleX 
+                        className='w-24 h-24 text-red-500 cursor-pointer hover:text-red-700' 
+                        onClick={() => clearSelection()}
+                    />
+                </div>
+            }
+                <div className='flex items-center gap-8 pr-4'>
+                {
+                    //user && ((userinfo.role === 'admin' && folder_name.startsWith(userinfo.folder)) || (g_admin && g_admin.includes(userinfo.email))) && folder_type === 'system' &&
+                    user && userinfo.role === 'admin' && userinfo.folder === 'APIN' && folder_type === 'system' &&
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <div className='grid gap-1'>
+                                <div className='relative w-16 h-16 pl-4 py-2 border border-muted-foreground/50 rounded-xl shadow-md flex items-center justify-center cursor-pointer'>
+                                    <PlusIcon className='w-4 h-4 z-20 mt-1 mr-[-32px]' />
+                                    <FolderIcon size="large" />
+                                </div>
+                                <span className='text-sm mx-auto'>New group</span>
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle>Create folder</DialogTitle>
+                            <NewFolder parent_folder={folder_name} foldertype="system" />
+                        </DialogContent>              
+                    </Dialog>
+                }
+                    <div className='grid gap-1'>
+                        <div 
+                            className='relative w-16 h-16 py-2 border border-muted-foreground/50 rounded-xl shadow-md flex items-center justify-center cursor-pointer hover:bg-muted-foreground/20 mx-auto'
+                            onClick={() => navigate('/activities')}
+                        >
+                            <Activity className='w-8 h-8 text-accent dark:text-brand' />
+                        </div>
+                        <div className='w-full flex justify-center'>
+                            <span className='text-sm'>Activities</span>
+                        </div>
+                    </div>
+                {   
+                    folder_type === 'system' &&
+                    <div className='grid gap-1'>
+                        <div 
+                            className='relative w-16 h-16 py-2 border border-muted-foreground/50 rounded-xl shadow-md flex items-center justify-center cursor-pointer'
+                            onClick={() => setActive_view('users')}
+                        >
+                            <UserIcon />
+                        </div>
+                        <span className='text-sm mx-auto'>Users</span>
+                    </div>
+                }
+                {
+                     user && (folder_name.startsWith(userinfo.folder) || g_admin && g_admin.includes(userinfo.email) || privileges && privileges.includes(userinfo.email)) &&
+                     <Dialog>
+                        <DialogTrigger asChild>
+                            <div className='grid gap-1'>
+                                <div 
+                                    className='relative w-16 h-16 py-2 border border-muted-foreground/50 rounded-xl shadow-md flex items-center justify-center cursor-pointer hover:bg-muted-foreground/20'
+                                >
+                                    <FolderOpen className='w-8 h-8 text-accent dark:text-brand' />
+                                </div>
+                                <span className='text-sm mx-auto'>New folder</span>
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle className="font-extralight">Document uploads folder</DialogTitle>
+                            <DialogDescription>
+                                Create a folder to upload files inside the {folder_name && folder_name.split('__').at(-1).replaceAll('_', ' ')} group
+                            </DialogDescription>
+                            <NewFolder parent_folder={folder_name} foldertype="document" />
+                        </DialogContent>
+                    </Dialog>
+                }
+                {
+                    user && (folder_name.startsWith(userinfo.folder) || g_admin && g_admin.includes(userinfo.email) || privileges && privileges.includes(userinfo.email)) &&
+                    <Dialog open={newfolderOpen} onOpenChange={setNewfolderpOpen}>
+                        <DialogTrigger asChild>
+                            <div className='grid gap-1'>
+                                <div className='relative w-16 h-16 py-2 border border-muted-foreground/50 rounded-xl shadow-md flex items-center justify-center cursor-pointer hover:bg-muted-foreground/20'>
+                                    <FileText className='w-8 h-8 text-accent dark:text-brand' />
+                                </div>
+                                <span className='text-sm mx-auto'>New file</span>
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle className="font-extralight">File upload</DialogTitle>
+                            <DialogDescription>
+                                Uplaod a file to the {folder_name && folder_name.split('__').at(-1).replaceAll('_', ' ')} group
+                            </DialogDescription>
+                            <NewFolder parent_folder={folder_name} foldertype="file" setFilecreated={setFilecreated} />
+                        </DialogContent>
+                    </Dialog>
+                }
+                    
+                {
+                    privileges && privileges !== null && 
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <div className='grid gap-1'>
+                                <div 
+                                    className='relative w-16 h-16 py-2 border border-muted-foreground/50 rounded-xl shadow-md flex items-center justify-center cursor-pointer hover:bg-muted-foreground/20'
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-round-key-icon lucide-user-round-key">
+                                        <circle cx="10" cy="8" r="5" className="stroke-accent dark:stroke-brand" />
+                                        <path d="M2 21a8 8 0 0 1 12.868-6.349" className="stroke-accent dark:stroke-brand" />
+                                        <path d="M19 11v6" className="stroke-amber-500" />
+                                        <path d="M19 13h2" className="stroke-amber-500" />
+                                        <circle cx="19" cy="19" r="2" className="stroke-amber-500" />
+                                    </svg>
+                                </div>
+                                <span className='text-sm mx-auto'>Access</span>
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle className="font-extralight">Access to content</DialogTitle>
+                            <DialogDescription>
+                                Accounts that have access to this folder
+                            </DialogDescription>
+                            <div className='grid gap-2 p-2 border border-muted-foreground/30 rounded-xl font-extralight'>
+                            {
+                                privileges && JSON.parse(privileges).map((priv, index) => (
+                                    <span key={index}>{priv.split('__').at(-1).replaceAll('_', ' ')}</span>
+                                ))
+                            }
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                }
+                </div>
+            </div>
+
+            {/** MAIN CONTENT */}
+        {
+            active_view === 'folders' ?
+                <div className='w-full p-6 bg-background rounded-2xl overflow-auto'>
+                {
+                    loading || !folders ? <SkeletonComponent /> :
+                    repoFilter && <DataTable data={repoFilter} columns={columns} filterArrs={datafilters} />
+                }  
+                </div> :
+                <FolderUsers setActive_view={setActive_view} foldername={folder_name} />
+        }
+            {/** FILE PROPERTIES DIALOG */}
+        {
+            filecreated &&
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogTrigger asChild>
+                    <CloudUpload className='w-6 h-6 text-blue-500 cursor-pointer' />
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogTitle className="font-extralight">{filecreated && filecreated.parent_folder.split('__').at(-1).replaceAll('_', ' ')+' | '+filecreated.folder_title}</DialogTitle>
+                    <FileProperties 
+                        fileinfo={filecreated} 
+                        setIsOpen={setIsOpen}
+                    />
+                </DialogContent>
+            </Dialog>
+        }   
+        {/* Context Menu Dialog */}
+        {contextMenu.visible && (
+            <div
+                ref={menuRef}
+                style={{
+                    position: 'fixed',
+                    top: contextMenu.y,
+                    left: contextMenu.x,
+                }}
+                className="bg-background border border-muted-foreground/20 rounded-lg shadow-xl py-1 min-w-[100px] z-50"
+            >
+                <div className="flex justify-between items-center px-4 py-1 border-b border-muted-foreground/20">
+                    <Ellipsis className='text-muted-foreground' />
+                    <X 
+                        className='w-4 h-4 cursor-pointer text-red-500' 
+                        onClick={() => handleClickOutside()}
+                    />
+                </div>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <button
+                            className="w-full flex items-center gap-2 text-left px-4 py-2 hover:bg-foreground/5 transition-colors"
+                        >
+                            <ReceiptText className='w-5 h-5 text-accent dark:text-brand' /> <span>About</span>
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogTitle></DialogTitle>
+                        <div className='text-muted-foreground'>{contextMenu.itemdetail ? contextMenu.itemdetail : <span className='text-muted-foreground/40'>This file has no detail added to it.</span>}</div>
+                    </DialogContent>
+                </Dialog>
+            {
+                contextMenu.itemtype !== 'file' &&
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <button
+                            className="w-full flex items-center gap-2 text-left px-4 py-2 hover:bg-foreground/5 transition-colors"
+                        >
+                            <UserRoundCog className='w-5 h-5 text-accent dark:text-brand' /> <span>Group admins</span>
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogTitle>Group admins</DialogTitle>
+                        <GroupadminsDialog contextMenu={contextMenu} setContextMenu={setContextMenu} />
+                    </DialogContent>
+                </Dialog>
+            }
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <button
+                            className="w-full text-left px-4 py-2 hover:bg-foreground/5 transition-colors"
+                        >
+                            ✏️ Rename
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogTitle></DialogTitle>
+                        <RenameFolder contextMenu={contextMenu} setContextMenu={setContextMenu} />
+                    </DialogContent>
+                </Dialog>
+                
+                {/*<button
+                    onClick={() => handleAction('duplicate')}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                >
+                    📋 Duplicate
+                </button>*/}
+                <button
+                    className="w-full text-left px-4 py-2 hover:bg-foreground/5 text-red-600 transition-colors"
+                    onClick={() => actionDelete(contextMenu.itemid, contextMenu.item)}
+                >
+                    🗑️ Delete
+                </button>
+            </div>
+        )}
+        </div>
+    )
+}
+
+export default Folders
