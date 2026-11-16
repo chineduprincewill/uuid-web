@@ -3,7 +3,7 @@ import { Badge } from '../components/ui/badge'
 import Logo from '../components/logo'
 import Footer from '../components/footer'
 
-const LeftBanner = () => {
+const LeftBanner = ({ gotoDownoad }) => {
     return (
         <div className='flex flex-col items-center justify-center'>
             <div className="grid gap-6 px-4 py-4 lg:pl-8 pr-5">
@@ -16,9 +16,10 @@ const LeftBanner = () => {
                 </p>
                 <Badge 
                     variant="outline" 
-                    className="max-w-max bg-white/10 border-white/30 px-4 py-2 text-white text-sm font-medium"
+                    className="max-w-max bg-white/10 hover:bg-white/20 cursor-pointer border-white/30 p-4 text-white text-lg font-normal text-brand"
+                    onClick={() => gotoDownoad()}
                 >
-                    One Source of Truth. Multiple data network.
+                    Download UIDReg Mobile App
                 </Badge>
                 <Footer />
             </div>

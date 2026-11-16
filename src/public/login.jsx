@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
@@ -10,10 +10,12 @@ import LeftBanner from './left-banner';
 import { BaggageClaim, Eye, EyeOff, LucideSettings, Settings2Icon } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import SubmitRequestDialog from './manage-requests/submit-request-dialog';
+import UidregMobile from './uidreg-mobile';
 
 const Login = () => {
     const navigate = useNavigate();
     const { login, isLoading, isAuthenticated } = useAuth();
+    const downloadRef = useRef(null);
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -21,6 +23,17 @@ const Login = () => {
     //const [loginError, setLoginError] = useState("");
     const [error, setError] = useState("");
     const [eyeopen, setEyeopen] = useState(false);
+
+     // 2. Create a function to handle the scroll
+     const scrollToSection = () => {
+        // Optional: Check if the ref exists before scrolling
+        if (downloadRef.current) {
+            downloadRef.current.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' // Aligns the top of the element with the top of the viewport
+            });
+        }
+    };
 
     // Redirect to dashboard if already authenticated
     useEffect(() => {
@@ -70,10 +83,10 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center aurora">
+        <div className="min-h-screen grid aurora">
             <div className="w-full z-30 grid grid-cols-1 lg:grid-cols-2 min-h-screen">
                 {/* Left Banner */}
-                <LeftBanner />
+                <LeftBanner gotoDownoad={scrollToSection} />
 
                 {/* Right Form */}
                 <div className="flex flex-col items-center justify-center p-6 sm:p-8 lg:p-12">
@@ -211,6 +224,9 @@ const Login = () => {
                         </p>
                     </div>
                 </div>
+            </div>
+            <div ref={downloadRef}>
+                <UidregMobile />
             </div>
             <div className='w-full hidden md:block fixed top-0 h-screen m-0 bg-[url("/assets/bg.png")] bg-contain opacity-10 dark:opacity-10'></div>
         </div>
