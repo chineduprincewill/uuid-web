@@ -53,7 +53,7 @@ const Clientids = () => {
 
     useEffect(() => {
         getClientFacilites(token, setOptions, setError, setLoading)
-    }, [facility])
+    }, [facility, record])
 
     useEffect(() => {
         // Assuming your fetch functions accept the setter functions

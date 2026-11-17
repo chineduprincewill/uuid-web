@@ -18,6 +18,7 @@ import { SiPivotaltracker } from 'react-icons/si';
 import Trackers from './trackers';
 import Checklist from './checklist';
 import CountdownComponent from '../../components/countdown-component';
+import { dashboardImportProgress } from '../../utils/clientids';
 
 const Dashboard = () => {
 
@@ -28,6 +29,8 @@ const Dashboard = () => {
     const [statistics, setStatistics] = useState();
     const [view_summary, setView_summary] = useState(true)
     const [pendingCount, setPendingCount] = useState(null);
+    const [progress, setProgress] = useState();
+    const [isLoading, setIsLoading] = useState(false)
     const navigate = useNavigate();
     const url = window.location.origin+'/repository';
 
@@ -42,13 +45,33 @@ const Dashboard = () => {
   
     console.log(statistics && statistics.checklist_count);
 
+    const checkProgress = () => {
+        dashboardImportProgress(token, setProgress, setError, setIsLoading)
+    }
+
+    useEffect(() => {
+
+        let active = true;
+        let timer;
+
+        checkProgress();
+
+        timer = setInterval(checkProgress, 3000);
+
+        return () => {
+            active = false;
+            clearInterval(timer);
+        };
+
+    }, []);
+
 
     return (
         <div className='w-full grid gap-4 p-4'>
             <div className='w-full flex p-2 justify-between items-center bg-card rounded-lg'>
                 <span className='text-xl font-extralight'>Dashboard</span>
             </div>
-            <div className='grid gap-4'>
+            <div className='hidden gap-4'>
             {
                 view_summary ? 
                 <div className='grid gap-4'>
@@ -248,6 +271,63 @@ const Dashboard = () => {
                 </div>
             }
                    
+            </div>
+            <div className="h-px bg-gradient-to-r from-transparent via-brand dark:via-brand to-transparent"></div>
+            <div className='w-full flex p-4 items-center gap-4 bg-card rounded-lg'>
+                {(progress && progress.length > 0) ? progress.map((prog, index) => {
+
+                    let percentage = Math.round((prog.processed_rows/prog.total_rows)*100);
+
+                    return<div key={index} className='w-full md:w-1/3 p-4 bg-accent/20 rounded-lg'>
+                        <h3>
+                            Import Progress
+                        </h3>
+
+                        <div className="w-full bg-gray-200 rounded-full h-4 mt-3">
+
+                            <div
+                                className="bg-green-600 h-4 rounded-full"
+                                style={{
+                                    width: `${percentage}%`
+                                }}
+                            />
+
+                        </div>
+
+                        <p className="mt-2">
+                            {percentage}% completed
+                        </p>
+
+                        <p>
+                            Processed: {
+                                prog.processed_rows.toLocaleString()
+                            } / {
+                                prog.total_rows.toLocaleString()
+                            }
+                        </p>
+
+                        <p>
+                            Failed: {
+                                prog.failed_rows.toLocaleString()
+                            }
+                        </p>
+
+                        <p>
+                            Status: {prog.status}
+                        </p>
+
+                        {prog.error_message && (
+                            <p className="text-red-500">
+                                {prog.error_message}
+                            </p>
+                        )}
+
+                    </div>
+                }) : 
+                <div className='w-full p-4 bg-accent/10 rounded-lg'>
+                    <span className='text-xl font-extralight'>No import currently in progress</span>
+                </div>
+            }
             </div>
             <div className="h-px bg-gradient-to-r from-transparent via-brand dark:via-brand to-transparent"></div>
             <CountdownComponent />
